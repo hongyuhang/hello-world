@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:int-sftp="http://www.springframework.org/schema/integration/sftp"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+       http://www.springframework.org/schema/beans/spring-beans.xsd 
+       http://www.springframework.org/schema/integration/sftp 
+       http://www.springframework.org/schema/integration/sftp/spring-integration-sftp.xsd
+       http://www.springframework.org/schema/integration 
+       http://www.springframework.org/schema/integration/spring-integration.xsd
+       http://www.springframework.org/schema/context 
+       http://www.springframework.org/schema/context/spring-context.xsd">
+
+	<!--<context:property-placeholder location="classpath:sftp-localhost.properties"/> -->
+	<context:property-placeholder location="classpath:sftp-nas.properties" />
+
+	<!-- Using a caching connection factory appears to spawn a thread and keep 
+		a connection to the server. That might be better for performance but it also 
+		appears to maintain a connection to the server. For now, I just want to get 
+		a connection to the server, do the work and then disconnect. -->
+	<!--<bean id="sftpSessionFactory" class="org.springframework.integration.file.remote.session.CachingSessionFactory"> -->
+	<!--<constructor-arg ref="defaultSftpSessionFactory" /> -->
+	<!--</bean> -->
+
+	<!--<bean id="defaultSftpSessionFactory" class="org.springframework.integration.sftp.session.DefaultSftpSessionFactory"> -->
+	<bean id="sftpSessionFactory"
+		class="org.springframework.integration.sftp.session.DefaultSftpSessionFactory">
+		<property name="host" value="${host}" />
+		<property name="port" value="${port}" />
+		<property name="user" value="${username}" />
+		<property name="password" value="${password}" />
+		<!--<property name="privateKey" value="${privatekey}"/> -->
+		<!--<property name="privateKeyPassphrase" value="${passphrase}"/> -->
+		<property name="allowUnknownKeys" value="true" />
+		<!-- <property name="knownHosts" value="${knownhost}"/> -->
+		<!--<property name="sessionConfig" ref="sessionConfig"/> -->
+		<!--<property name="userInfo" ref=""/> -->
+	</bean>
+
+	<!--<bean id="sessionConfig"> -->
+	<!--<property name="PreferredAuthentications" value="publickey,keyboard-interactive,password"/> -->
+	<!--</bean> -->
+
+	<!--<bean id="remoteFileTemplate" class="org.springframework.integration.file.remote.RemoteFileTemplate"> -->
+	<!--<constructor-arg ref="sftpSessionFactory" /> -->
+	<!--</bean> -->
+
+	<bean id="remoteFileTemplate"
+		class="org.springframework.integration.sftp.session.SftpRemoteFileTemplate">
+		<constructor-arg ref="sftpSessionFactory" />
+	</bean>
+
+	<int-sftp:inbound-channel-adapter id="sftpInboundAdapter"
+		auto-startup="true" channel="receiveChannel" session-factory="sftpSessionFactory"
+		local-directory="/Users/hongyuhang/Documents/recieve" 
+		remote-directory="/Users/sftptestuser/sftptest"
+		auto-create-local-directory="true" delete-remote-files="false"
+		filter="compositeFilter"
+		local-filter="acceptOnceFileListFilter">
+		<int:poller fixed-rate="5000" max-messages-per-poll="1" />
+	</int-sftp:inbound-channel-adapter>
+
+	<int:channel id="receiveChannel">
+	</int:channel>
+	
+	<bean id="acceptAllFileListFilter" class="org.springframework.integration.file.filters.AcceptAllFileListFilter"/>
+	<bean id="acceptOnceFileListFilter" class="org.springframework.integration.file.filters.AcceptOnceFileListFilter"/>
+
+	<bean id="compositeFilter" class="org.springframework.integration.file.filters.CompositeFileListFilter">
+	    <constructor-arg>
+	        <list>
+	           <!--  <ref bean="acceptAllFileListFilter"/> -->
+	            <ref bean="acceptOnceFileListFilter"/>
+	        </list>
+	    </constructor-arg>
+	</bean>
+	
+	<int:service-activator id="jobServiceActivator"
+                       input-channel="receiveChannel"
+                       ref="messageHander"
+                     />
+
+	
+	<bean id="messageHander" class="hyh.test.sftp.service.FileMessageHandler" />
+	<!-- 
+	<bean id="fileChannelInterceptor" class="hyh.test.sftp.service.FileChannelInterceptor" />
+	
+	<int:service-activator ref="messageHander" input-channel="receiveChannel" />
+	 -->
+</beans>
