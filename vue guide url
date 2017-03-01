@@ -12,3 +12,5 @@ https://github.com/spring-projects/spring-integration/tree/master/spring-integra
                 ribbonType : false,  
                 clickable : true,  
                 draggable : false, 
+
+jQuery.extend( [ deep ], target , object1 [, objectN... ] )
